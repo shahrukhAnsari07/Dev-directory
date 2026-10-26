@@ -1,0 +1,19 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { createPost, getUsers } from '../services/postService';
+import AlertBanner from '../components/AlertBanner';
+
+const initial = { userId: '', title: '', body: '' };
+export default function AddPost() {
+  const [users, setUsers] = useState([]), [form, setForm] = useState(initial), [loadingUsers, setLoadingUsers] = useState(true), [submitting, setSubmitting] = useState(false), [error, setError] = useState(''), [success, setSuccess] = useState(false);
+  useEffect(() => { getUsers().then(r=>setUsers(r.data)).catch(()=>setError('Unable to load authors.')).finally(()=>setLoadingUsers(false)); }, []);
+  const update = e => { setSuccess(false); setForm({...form, [e.target.name]: e.target.value}); };
+  const titleError = form.title && (form.title.length < 5 || form.title.length > 80) ? 'Title must be 5–80 characters.' : '';
+  const bodyError = form.body && (form.body.length < 20 || form.body.length > 500) ? 'Body must be 20–500 characters.' : '';
+  const valid = Boolean(form.userId) && form.title.length >= 5 && form.title.length <= 80 && form.body.length >= 20 && form.body.length <= 500;
+  const submit = async e => { e.preventDefault(); if (!valid) return; setSubmitting(true); setError(''); setSuccess(false); try { const response = await createPost({ title: form.title.trim(), body: form.body.trim(), userId: Number(form.userId) }); if (response.status === 201) { setSuccess(true); setForm(initial); } } catch (err) { setError(err?.message || 'Unable to publish the article.'); } finally { setSubmitting(false); } };
+  return <main className="page"><div className="container narrow"><Link to="/users" className="back-link">← Back to directory</Link><div className="page-heading"><div><span className="eyebrow">CONTENT MANAGEMENT</span><h1>Publish an article</h1><p>Share a useful engineering note with the team.</p></div></div>{success && <div className="alert success"><span className="alert-icon">✓</span><div><strong>Published successfully</strong><p>Your article was created with HTTP 201 Created.</p></div></div>}<AlertBanner message={error} onRetry={()=>setError('')} onDismiss={()=>setError('')}/>
+    <form className="post-form" onSubmit={submit}><div className="form-section"><div className="form-number">01</div><div className="form-content"><h2>Author</h2><p>Select the developer publishing this article.</p><label>Developer<select name="userId" value={form.userId} onChange={update} disabled={loadingUsers} required><option value="">{loadingUsers ? 'Loading developers…' : 'Choose a developer'}</option>{users.map(u=><option key={u.id} value={u.id}>{u.name} — {u.company?.name}</option>)}</select></label></div></div>
+    <div className="form-section"><div className="form-number">02</div><div className="form-content"><h2>Article</h2><p>Keep the title clear and the writeup useful.</p><label>Title<input name="title" value={form.title} onChange={update} minLength="5" maxLength="80" placeholder="e.g. How we improved API response time" required/><span className={`counter ${titleError ? 'invalid' : ''}`}>{form.title.length}/80</span>{titleError && <span className="field-error">{titleError}</span>}</label><label>Body<textarea name="body" value={form.body} onChange={update} minLength="20" maxLength="500" rows="8" placeholder="Share the technical context, solution, or lesson learned…" required/><span className={`counter ${bodyError ? 'invalid' : ''}`}>{form.body.length}/500</span>{bodyError && <span className="field-error">{bodyError}</span>}</label></div></div>
+    <div className="form-actions"><span>All fields are required.</span><button className="btn btn-primary" disabled={!valid || submitting}>{submitting ? 'Publishing…' : 'Publish article →'}</button></div></form></div></main>;
+}
